@@ -19,7 +19,7 @@ ircsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server = 'irc.freenode.net'
 port = 6667
 channel = ['#tagprobots', '#tagpro2', '#tagpromods', '#tagpro', '#TPMods']
-botnick = "rollbot"
+botnick = "rollbot2"
 password = ''
 prefix = '|'
 
