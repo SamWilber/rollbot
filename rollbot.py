@@ -8,7 +8,7 @@ import socket
 import random
 import time
 from datetime import datetime
-#import praw
+# import praw
 
 
 #define ircsock
@@ -18,13 +18,13 @@ ircsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server = 'irc.freenode.net'
 port = 6667
 channel = ["#turtlemansam"]
-botnick = "rollbot"
+botnick = "rollbot2"
 password = ''
 prefix = '|'
 
 # Majestic owner
 owner = ['turtlemansam']
-owner_pass = ''
+owner_pass = 'tagpro'
 
 # Connecting to IRC and shit
 def ping(content):
@@ -43,6 +43,7 @@ def joinchan(chan):
 
 def leavechan(chan):
     ircsock.send("PART " + chan + "\n")
+
 
 def connect():
     print "connecting...\n"
@@ -197,6 +198,7 @@ def commands(nick, chan, msg):
     # Command: !ticket
     elif (command == ":!ticket"):
         sendmsg(chan, "http://support.koalabeast.com/#/appeal")
+
     # Owner commands
     if nick in owner:
         # quit
@@ -212,13 +214,15 @@ def commands(nick, chan, msg):
         # part
         elif (command == ":" + prefix + "part"):
             leavechan(chan)  # lets connect
-        # Command: topic
-        #elif (command == ":" + prefix + "topic"):
-        #    ircsock.send("PRIVMSG Chanserv :topic #tagpro http://tagpro.gg | http://TagPro.reddit.com | {} http://bit.ly/TagProSticky | TagPro Mods have + next to their name. | Mod calls will be redirected to #TPmods\n".format(redditTopic()))
+            # Command: topic
+            #elif (command == ":" + prefix + "topic"):
+            #    ircsock.send("PRIVMSG Chanserv :topic #tagpro http://tagpro.gg | http://TagPro.reddit.com | {} http://bit.ly/TagProSticky | TagPro Mods have + next to their name. | Mod calls will be redirected to #TPmods\n".format(redditTopic()))
+
 
 connect()
 
 while 1:
+
     try:
         now = time.time()
         ircmsg = ircsock.recv(2048)  # get data
@@ -232,6 +236,7 @@ while 1:
             nick = ircmsg.split('!')[0][1:]
             comchan = ircmsg.split(' PRIVMSG ')[-1].split(' :')[0]
             commands(nick, comchan, ircmsg)
+
     except socket.timeout:
         print 'Disconnected'
         ircsock.close()
