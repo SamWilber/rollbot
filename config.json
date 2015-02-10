@@ -1,0 +1,13 @@
+{
+  "server": "irc.freenode.net",
+  "port": 6667,
+  "channel": ["#tagpro2"],
+  "botnick": "rollbot2",
+  "password": "",
+  "prefix": "|",
+
+  "owner": {
+    "nick": " ",
+    "pass": " "
+  }
+}
