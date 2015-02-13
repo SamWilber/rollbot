@@ -12,12 +12,12 @@ import re
 from logbook import Logger
 import inspect
 import sys
+import praw
 
 
 def command(method):  # A decorator to automatically register and add commands to the bot.
     method.is_command = True
     return method
-
 
 def owner_command(method):
     method.is_command = True
@@ -123,6 +123,7 @@ class RollBot:
                         self.logger.info("Attempting to join {}", channel)
                         self.join_channel(channel)
 
+
             except socket.timeout:
                 self.logger.error("Disconnected. Attempting to reconnect.")
                 self.socket.close()
@@ -130,7 +131,7 @@ class RollBot:
                 self.connect()
 
     def handle_message(self, source, destination, message):
-        is_command = message.startswith(self.config['prefix'])
+        is_command = message.startswith(self.config['prefix'].encode("utf-8"))
         if is_command:
             self.handle_command(source, destination, message)
 
@@ -151,8 +152,9 @@ class RollBot:
                     for message in return_message:  # So let's loop over them all
                         self.send_message(reply_to, message)  # And send them.
         else:
-            combined_command = self.command_prefix + command_key
-            self.send_message(reply_to, "Sorry, {} isn't a recognized command.".format(combined_command))
+            pass
+            #combined_command = self.command_prefix + command_key
+            #self.send_message(reply_to, "Sorry, {} isn't a recognized command.".format(combined_command))
 
     def send_raw(self, message):
         return self.socket.send((message + "\n").encode("utf-8"))
@@ -160,12 +162,15 @@ class RollBot:
     def update_ping_time(self):
         self.last_ping = time.time()
 
-    def scramble(word):
-        foo = list(word[1:-1])
-        random.shuffle(foo)
-        return word[0] + ''.join(foo) + word[-1]
+    def reddit_topic(self):
+        r = praw.Reddit("IRC Topic Updater - /u/samwilber")
+        subreddit = r.get_subreddit('tagpro')
+        submission = subreddit.get_hot().next()
+        return(submission.title)
+        #return(submission.stickied)
 
     # Commands
+
     @command
     def about(self, source, reply_to, *args):
         return "Hi my name is {} and currently turtlemansam is holding me hostage. " \
@@ -201,9 +206,9 @@ class RollBot:
         elif helpp == "netsplit":
             return "|netsplit - technically..."
         elif helpp == "optin":
-            return "|optin - Opt yourself into receiving mod calls (Moderator Command)"
+            return "!optin - Opt yourself into receiving mod calls (Moderator Command)"
         elif helpp == "optout":
-            return "|optout - Opt yourself out of receiving mod calls (Moderator Command)"
+            return "!optout - Opt yourself out of receiving mod calls (Moderator Command)"
         elif helpp == "part":
             return "|part <channel> - Makes the bot leave any channel (Owner Command)"
         elif helpp == "ping":
@@ -280,18 +285,22 @@ class RollBot:
     @command
     def ping(self, source, reply_to, *args):
         with open("raccoons.txt") as f:
-            return "10{}14, your pong is10 {}14 {}.".format(source, random.randint(0, 10), random.choice(list(f))
-)
+            return "10{}14, your pong is10 {}14 {}.".format(source, random.randint(0, 10), random.choice(list(f)))
 
     @command
     def mods(self, source, reply_to, *args):
-        if reply_to != "#TPMods":
-            return "Sorry! You must call this command in the channel #TPMods"
+        if reply_to != "#TPmods":
+            return "Sorry! You must use this command in the channel #TPmods"
         else:
-            return "{}: the mods have received your request. Please stay patient while waiting.".format(reply_to)
+            self.send_raw("NAMES #TPmods")
+            message = self.get_message_from_server()
+            ircmsg = message.strip('\n\r')
+            if ircmsg.find(' 353 rollbot ') != -1:
+                namelist = ircmsg.split(":")[2]
+                modlist = " ".join(x[1:] for x in namelist.split() if x.startswith("+"))
+                self.send_raw("PRIVMSG #TagProMods :Mods - {}".format(modlist))
+            self.send_raw("PRIVMSG #TPmods :{} - the mods have received your request. Please stay patient while waiting".format(source))
             self.send_raw("PRIVMSG #TagProMods :Mod request from {} in {}: {}".format(source, reply_to, ' '.join(args)))
-            self.send_raw("PRIVMSG #TagProMods : Mods: turtlemansam")
-
     @command
     def optin(self, source, reply_to, *args):
         if reply_to != "#TagProMods":
@@ -305,8 +314,12 @@ class RollBot:
         if reply_to != "#TagProMods":
             return "Sorry! This command is not authorized here."
         else:
-            self.send_raw("PRIVMSG Chanserv :voice #TPmods {}".format(source))
+            self.send_raw("PRIVMSG Chanserv :devoice #TPmods {}".format(source))
             return "You are now off duty."
+
+    @command
+    def ticket(self, source, reply_to, *args):
+        return "http://support.koalabeast.com/#/appeal"
 
     @owner_command
     def quit(self, source, reply_to, *args):
@@ -349,26 +362,12 @@ class RollBot:
         else:
             return "The format is: |say <channel> <message>"
 
+    @owner_command
+    def topic(self, source, reply_to, *args):
+        self.send_raw("PRIVMSG Chanserv :topic #tagpro http://tagpro.gg | http://tagpro.reddit.com | {} http://bit.ly/TagProSticky | TagPro Mods have + next to their name. | Mod calls will be redirected to #TPmods".format(self.reddit_topic()))
+
+
+
 if __name__ == "__main__":
     bot = RollBot()
     bot.connect()
-
-
-"""
-    # Command: mods
-    elif (command == ":" + "!mods"):
-        if chan == nick:
-            sendmsg(nick, "Sorry! You must be in a channel to use this command")
-        elif chan == "#TPmods":
-            ircsock.send("NOTICE " + nick + " :" + nick + ": The mods have recieved your request. Please be patient\n")
-            sendmsg("#tagpromods", "Mod request from " + nick + " in " + chan + "!")
-            sendmsg("#tagpromods",
-                    "Mods: Flail, Hoog, Watball, Corhal, Ly, tim-sanchez, _Ron, Aaron215, JGibbs, Radian, cz, TinkerC, Bull_tagpro, pooppants, turtlemansam, McBride36, deeznutz, bizkut, poopv, Rems, Rambo, bbq, Akiki, TimeMod, rDuude, yo_cat, Virtulis")
-        else:
-            ircsock.send(
-                "NOTICE " + nick + " :" + nick + ": The mods have recieved your request. Please type /join #TPmods and be patient.\n")
-            sendmsg("#tagpromods", "Mod request from " + nick + " in " + chan + "!")
-            sendmsg("#tagpromods",
-                    "Mods: Flail, Hoog, Watball, Corhal, Ly, tim-sanchez, _Ron, Aaron215, JGibbs, Radian, cz, TinkerC, Bull_tagpro, pooppants, turtlemansam, McBride36, deeznutz, bizkut, poopv, Rems, Rambo, bbq, Akiki, TimeMod, rDuude, yo_cat, Virtulis")
-
-"""
