@@ -1,7 +1,7 @@
 {
-  "server": "irc.freenode.net",
+  "server": "chat.freenode.net",
   "port": 6667,
-  "channel": [""],
+  "channel": ["#foo"],
   "botnick": "rollbot",
   "password": "",
   "prefix": "!",

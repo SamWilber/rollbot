@@ -14,7 +14,6 @@ import inspect
 import sys
 import praw
 
-
 def command(method):  # A decorator to automatically register and add commands to the bot.
     method.is_command = True
     return method
@@ -81,6 +80,7 @@ class RollBot:
         self.send_raw("NICK " + self.nick)
         self.run_loop()
 
+    @property
     def get_message_from_server(self):
         message = ""
         current_character = self.socket.recv(1)
@@ -98,7 +98,7 @@ class RollBot:
 
         while True:
             try:
-                message = self.get_message_from_server()
+                message = self.get_message_from_server
                 self.logger.debug("Received server message: {}", message)
                 parsed_message = compiled_message.finditer(message)
                 message_dict = [m.groupdict() for m in parsed_message][0]  # Extract all the named groups into a dict
@@ -114,7 +114,7 @@ class RollBot:
                     self.send_ping(message_dict['message'])
 
                 if message_dict['type'] == "PRIVMSG":
-                    self.handle_message(source_nick, message_dict['destination'], message_dict['message'])
+                        self.handle_message(source_nick, message_dict['destination'], message_dict['message'])
 
                 if message_dict['type'] == "001":  # Registration confirmation message
                     self.registered = True
@@ -122,7 +122,6 @@ class RollBot:
                     for channel in self.config['channel']:
                         self.logger.info("Attempting to join {}", channel)
                         self.join_channel(channel)
-
 
             except socket.timeout:
                 self.logger.error("Disconnected. Attempting to reconnect.")
@@ -166,14 +165,14 @@ class RollBot:
         r = praw.Reddit("IRC Topic Updater - /u/samwilber")
         subreddit = r.get_subreddit('tagpro')
         submission = subreddit.get_hot().next()
-        return(submission.title)
+        return "{} {}".format(submission.title, submission.short_link)
         #return(submission.stickied)
 
     # Commands
 
     @command
     def about(self, source, reply_to, *args):
-        return "Hi my name is {} and currently turtlemansam is holding me hostage. " \
+        return "Hi my name is {} v4.0.6 and currently turtlemansam is holding me hostage. " \
                "If anyone could 934-992-8144 and tell me a joke to help pass the time, " \
                "that would be great.".format(self.nick)
 
@@ -220,14 +219,18 @@ class RollBot:
         elif helpp == "roll":
             return "|roll - Something that I will always be able to do"
         elif helpp == "say":
-            return "|say <channel> <message> - Have me say anything you want to any channel (Owner Command)"
+            return "!say <channel> <message> - Have me say anything you want to any channel (Owner Command)"
         elif helpp == "tagpro":
             return "|tagpro - Have me respond with what kind of game I wish TagPro was"
+        elif helpp == "ticket":
+            return "!ticket - Sends a link to TagPro's support site"
+        elif helpp == "topic":
+            return "!topic - Updates #tagpro's topic!"
         elif helpp == "weather":
             return "|weather - Accurately predicts the weather in your area"
         else:
             return "Sorry! I don't recognize that command."
-
+    '''
     @command
     def netsplit(self, source, reply_to, *args):
         return "technically we all netsplit http://pastebin.com/mPanErhR"
@@ -281,50 +284,88 @@ class RollBot:
     @command
     def roll(self, source, reply_to, *args):
         return "Sorry {}, I can't do that right now.".format(source)
+    '''''
 
     @command
     def ping(self, source, reply_to, *args):
         with open("raccoons.txt") as f:
-            return "10{}14, your pong is10 {}14 {}.".format(source, random.randint(0, 10), random.choice(list(f)))
+            return "10{}14, your pong is10 {}14 {}.".format(source, random.randint(0, 100), random.choice(list(f)))
 
     @command
     def mods(self, source, reply_to, *args):
         if reply_to != "#TPmods":
-            return "Sorry! You must use this command in the channel #TPmods"
+            return "Sorry! You must use this command in the channel #TPmods. Double click the channel to join."
         else:
             self.send_raw("NAMES #TPmods")
-            message = self.get_message_from_server()
+            message = self.get_message_from_server
             ircmsg = message.strip('\n\r')
-            if ircmsg.find(' 353 rollbot ') != -1:
+            if ircmsg.find(' 353 {} '.format(self.nick)) != -1:
                 namelist = ircmsg.split(":")[2]
                 modlist = " ".join(x[1:] for x in namelist.split() if x.startswith("+"))
-                self.send_raw("PRIVMSG #TagProMods :Mods - {}".format(modlist))
-            self.send_raw("PRIVMSG #TPmods :{} - the mods have received your request. Please stay patient while waiting".format(source))
-            self.send_raw("PRIVMSG #TagProMods :Mod request from {} in {}: {}".format(source, reply_to, ' '.join(args)))
+                if modlist == "":
+                    self.send_raw("PRIVMSG #TPmods :Sorry {}, all mods are currently AFK.".format(source))
+                elif ' '.join(args) == "":
+                    self.send_raw("PRIVMSG #TagProMods :Mods - {}".format(modlist))
+                    self.send_raw("PRIVMSG #TPmods :{} - the mods have received your request. Please stay patient while waiting".format(source))
+                    self.send_raw("PRIVMSG #TagProMods :Mod request from {} in {}!".format(source, reply_to))
+                else:
+                    self.send_raw("PRIVMSG #TagProMods :Mods - {}".format(modlist))
+                    self.send_raw("PRIVMSG #TPmods :{} - the mods have received your request. Please stay patient while waiting".format(source))
+                    self.send_raw("PRIVMSG #TagProMods :Mod request from {} in {}: {}".format(source, reply_to, ' '.join(args)))
+
     @command
     def optin(self, source, reply_to, *args):
         if reply_to != "#TagProMods":
             return "Sorry! This command is not authorized here."
         else:
-            self.send_raw("PRIVMSG Chanserv :voice #TPmods {}".format(source))
-            return "You are now on duty."
+            self.send_raw("NAMES #TPmods")
+            message = self.get_message_from_server
+            ircmsg = message.strip('\n\r')
+            if ircmsg.find('+{}'.format(source)) != -1:
+                return "You are already on duty, {}.".format(source)
+            elif ircmsg.find('{}'.format(source)) != -1:
+                self.send_raw("PRIVMSG Chanserv :voice #TPmods {}".format(source))
+                return "You are now on duty, {}.".format(source)
+            else:
+                return "You are not in #TPmods, {}!".format(source)
 
     @command
     def optout(self, source, reply_to, *args):
         if reply_to != "#TagProMods":
             return "Sorry! This command is not authorized here."
         else:
-            self.send_raw("PRIVMSG Chanserv :devoice #TPmods {}".format(source))
-            return "You are now off duty."
+            self.send_raw("NAMES #TPmods")
+            message = self.get_message_from_server
+            ircmsg = message.strip('\n\r')
+            if ircmsg.find('+{}'.format(source)) != -1:
+                self.send_raw("PRIVMSG Chanserv :devoice #TPmods {}".format(source))
+                return "You are now off duty, {}.".format(source)
+            elif ircmsg.find('{}'.format(source)) != -1:
+                return "You are already off duty, {}.".format(source)
+            else:
+                return "You are not in #TPmods, {}!".format(source)
 
     @command
     def ticket(self, source, reply_to, *args):
         return "http://support.koalabeast.com/#/appeal"
 
+    @command
+    def topic(self, source, reply_to, *args):
+        #self.send_raw("Topic #tagpro")
+        #x = self.get_message_from_server
+        #message = "".join([a if ord(a) < 128 else '' for a in x])
+        #ircmsg = message.strip('\n\r')
+        #if ircmsg.find(' 332 {} '.format(self.nick)) != -1:
+        #    topic = ircmsg.split("#tagpro :")[1]
+        self.send_raw("PRIVMSG ChanServ :TOPIC #tagpro " + u'\u2691' + \
+                      " http://tagpro.gg | http://tagpro.reddit.com | {} | " \
+                      "TagPro Mods have + next to their name. | " \
+                      "Mod calls must be done in #TPmods ".format(self.reddit_topic()) + u'\u2690')
+
     @owner_command
     def quit(self, source, reply_to, *args):
         self.logger.warn("Shutting down by request of {}", source)
-        self.send_raw("QUIT :rollbot's out!")
+        self.send_raw("QUIT :{}'s out!".format(self.nick))
         self.socket.shutdown(1)
         self.socket.close()
         sys.exit()
@@ -361,12 +402,6 @@ class RollBot:
                 return "Whoops! I'm not in the channel {}".format(channel)
         else:
             return "The format is: |say <channel> <message>"
-
-    @owner_command
-    def topic(self, source, reply_to, *args):
-        self.send_raw("PRIVMSG Chanserv :topic #tagpro http://tagpro.gg | http://tagpro.reddit.com | {} http://bit.ly/TagProSticky | TagPro Mods have + next to their name. | Mod calls will be redirected to #TPmods".format(self.reddit_topic()))
-
-
 
 if __name__ == "__main__":
     bot = RollBot()
