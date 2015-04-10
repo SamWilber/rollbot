@@ -20,10 +20,10 @@ def command(method):  # A decorator to automatically register and add commands t
 
 def owner_command(method):
     method.is_command = True
-    def wrapper(self, source, *args):
+    def wrapper(self, hostmask, source, *args):
         if self.owner.lower() != source.lower():
             return "You can't control me {}!".format(source)
-        return method(self, source, *args)
+        return method(self, hostmask, source, *args)
     wrapper.is_command = True
     return wrapper
 
@@ -103,18 +103,20 @@ class RollBot:
                 parsed_message = compiled_message.finditer(message)
                 message_dict = [m.groupdict() for m in parsed_message][0]  # Extract all the named groups into a dict
                 source_nick = ""
+                hostmask = ""
                 ircmsg = message.strip('\n\r')  # remove new lines
                 print(ircmsg)
 
                 if message_dict['prefix'] is not None:
                     if "!" in message_dict['prefix']:  # Is the prefix from a nickname?
+                        hostmask = message_dict['prefix'].split("@")[1]
                         source_nick = message_dict['prefix'].split("!")[0]
 
                 if message_dict['type'] == "PING":
                     self.send_ping(message_dict['message'])
 
                 if message_dict['type'] == "PRIVMSG":
-                        self.handle_message(source_nick, message_dict['destination'], message_dict['message'])
+                    self.handle_message(hostmask, source_nick, message_dict['destination'], message_dict['message'])
 
                 if message_dict['type'] == "001":  # Registration confirmation message
                     self.registered = True
@@ -129,21 +131,25 @@ class RollBot:
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.connect()
 
-    def handle_message(self, source, destination, message):
+    def handle_message(self, hostmask, source, destination, message):
         is_command = message.startswith(self.config['prefix'].encode("utf-8"))
         if is_command:
-            self.handle_command(source, destination, message)
+            self.handle_command(hostmask, source, destination, message)
 
-    def handle_command(self, source, destination, message):
-        split_message = message[1:].split()
-        command_key = split_message[0].lower()
+    def handle_command(self, hostmask, source, destination, message):
+        try:
+            split_message = message[1:].split()
+            command_key = split_message[0].lower()
+        except IndexError:
+            self.logger.info("No Command")
+            return
         arguments = split_message[1:]
         reply_to = destination
         if destination == self.nick:
             reply_to = source  # If it's a private message, reply to the source. Otherwise it's a channel message and reply there.
         if command_key in self.command_list:
             self.logger.info("Received command '{}' from {}", command_key, source)
-            return_message = self.command_list[command_key](source, reply_to, *arguments)
+            return_message = self.command_list[command_key](hostmask, source, reply_to, *arguments)
             if return_message is not None:
                 if isinstance(return_message, basestring):  # Is it a string?
                     self.send_message(reply_to, return_message)  # If so, just send it along.
@@ -171,17 +177,17 @@ class RollBot:
     # Commands
 
     @command
-    def about(self, source, reply_to, *args):
-        return "Hi my name is {} v4.0.6 and currently turtlemansam is holding me hostage. " \
+    def about(self, hostmask, source, reply_to, *args):
+        return "Hi my name is {} v4.2 and currently turtlemansam is holding me hostage. " \
                "If anyone could 934-992-8144 and tell me a joke to help pass the time, " \
                "that would be great.".format(self.nick)
 
     @command
-    def commands(self, source, reply_to, *args):
+    def commands(self, hostmask, source, reply_to, *args):
         return "Available commands: {}".format(", ".join(sorted(self.command_list.keys())))
 
     @command
-    def help(self, source, reply_to, helpp=None, *args):
+    def help(self, hostmask, source, reply_to, helpp=None, *args):
         if helpp is None:
             return "Which command would you like help with?"
         elif helpp == "about":
@@ -198,6 +204,8 @@ class RollBot:
             return "|insult <user> - Send a mean insult to any user"
         elif helpp == "ISITALLCAPSHOUR":
             return "|ISITALLCAPSHOUR - Checks if it's all caps hour (time is unknown)"
+        elif helpp == "ip":
+            return "!ip - Converts IP's to dots instead of dashes"
         elif helpp == "join":
             return "|join <channel> - Makes the bot join any channel (Owner Command)"
         elif helpp == "mods":
@@ -226,6 +234,8 @@ class RollBot:
             return "!ticket - Sends a link to TagPro's support site"
         elif helpp == "topic":
             return "!topic - Updates #tagpro's topic!"
+        elif helpp == "warn":
+            return "!warn - Warn users in #TPmods to redirect their conversation elsewhere (Moderator Command)"
         elif helpp == "weather":
             return "|weather - Accurately predicts the weather in your area"
         else:
@@ -287,34 +297,41 @@ class RollBot:
     '''''
 
     @command
-    def ping(self, source, reply_to, *args):
+    def ping(self, hostmask, source, reply_to, *args):
         with open("raccoons.txt") as f:
             return "10{}14, your pong is10 {}14 {}.".format(source, random.randint(0, 100), random.choice(list(f)))
 
     @command
-    def mods(self, source, reply_to, *args):
+    def mods(self, hostmask, source, reply_to, *args):
         if reply_to != "#TPmods":
-            return "Sorry! You must use this command in the channel #TPmods. Double click the channel to join."
+            if source == "WOLOWOLO" or source == "justanotheruser" or source == "MRCOW" or source == "LEBRONxJAMES" or source == "defense_bot":
+                return "can you not"
+            else:
+                return "Sorry! You must use this command in the channel #TPmods | Double click the channel to join."
         else:
             self.send_raw("NAMES #TPmods")
             message = self.get_message_from_server
             ircmsg = message.strip('\n\r')
+            try:
+                ipp = " (http://tagpro-origin.koalabeast.com/moderate/ips/{})".format(re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', hostmask)[0])
+            except IndexError:
+                ipp = ""
             if ircmsg.find(' 353 {} '.format(self.nick)) != -1:
                 namelist = ircmsg.split(":")[2]
-                modlist = " ".join(x[1:] for x in namelist.split() if x.startswith("+"))
-                if modlist == "":
-                    self.send_raw("PRIVMSG #TPmods :Sorry {}, all mods are currently AFK.".format(source))
-                elif ' '.join(args) == "":
-                    self.send_raw("PRIVMSG #TagProMods :Mods - {}".format(modlist))
-                    self.send_raw("PRIVMSG #TPmods :{} - the mods have received your request. Please stay patient while waiting".format(source))
-                    self.send_raw("PRIVMSG #TagProMods :Mod request from {} in {}!".format(source, reply_to))
+                modlist = " ".join(x[1:] for x in namelist.split() if x.startswith('+'))
+                oplist = " ".join(x[1:] for x in namelist.split() if x.startswith('@'))
+                modmsg = "- " + ' '.join(args)
+                if ' '.join(args) == "":
+                    modmsg = ""
+                if modlist == "" and oplist == "":
+                    self.send_raw("PRIVMSG #TPmods :Sorry {}, all mods are currently AFK. You can stick around or leave your request for one to find later.".format(source))
                 else:
-                    self.send_raw("PRIVMSG #TagProMods :Mods - {}".format(modlist))
-                    self.send_raw("PRIVMSG #TPmods :{} - the mods have received your request. Please stay patient while waiting".format(source))
-                    self.send_raw("PRIVMSG #TagProMods :Mod request from {} in {}: {}".format(source, reply_to, ' '.join(args)))
+                    self.send_raw("PRIVMSG #TagProMods :Mods - {} {}".format(modlist, oplist))
+                    self.send_raw("PRIVMSG #TPmods :{} - the mods have received your request. Please stay patient while waiting. Make sure to state the user/issue to speed up the request process.".format(source))
+                    self.send_raw("PRIVMSG #TagProMods :Mod request from {}{} in {} {}".format(source, ipp, reply_to, modmsg))
 
     @command
-    def optin(self, source, reply_to, *args):
+    def optin(self, hostmask, source, reply_to, *args):
         if reply_to != "#TagProMods":
             return "Sorry! This command is not authorized here."
         else:
@@ -330,7 +347,7 @@ class RollBot:
                 return "You are not in #TPmods, {}!".format(source)
 
     @command
-    def optout(self, source, reply_to, *args):
+    def optout(self, hostmask, source, reply_to, *args):
         if reply_to != "#TagProMods":
             return "Sorry! This command is not authorized here."
         else:
@@ -346,11 +363,45 @@ class RollBot:
                 return "You are not in #TPmods, {}!".format(source)
 
     @command
-    def ticket(self, source, reply_to, *args):
-        return "http://support.koalabeast.com/#/appeal"
+    def op(self, hostmask, source, reply_to, *args):
+        if reply_to != "#TagProMods":
+            return "Sorry! This command is not authorized here."
+        else:
+            self.send_raw("NAMES #TPmods")
+            message = self.get_message_from_server
+            ircmsg = message.strip('\n\r')
+            if ircmsg.find('@{}'.format(source)) != -1:
+                return "You are already an operator, {}.".format(source)
+            elif ircmsg.find('{}'.format(source)) != -1:
+                self.send_raw("PRIVMSG Chanserv :op #TPmods {}".format(source))
+                return "You are now an operator, {}.".format(source)
+            else:
+                return "You are not in #TPmods, {}!".format(source)
 
     @command
-    def topic(self, source, reply_to, *args):
+    def deop(self, hostmask, source, reply_to, *args):
+        if reply_to != "#TagProMods":
+            return "Sorry! This command is not authorized here."
+        else:
+            self.send_raw("NAMES #TPmods")
+            message = self.get_message_from_server
+            ircmsg = message.strip('\n\r')
+            if ircmsg.find('@{}'.format(source)) != -1:
+                self.send_raw("PRIVMSG Chanserv :deop #TPmods {}".format(source))
+                return "You are no longer an operator, {}.".format(source)
+            elif ircmsg.find('{}'.format(source)) != -1:
+                return "You are not an operator, {}.".format(source)
+            else:
+                return "You are not in #TPmods, {}!".format(source)
+    @command
+    def ticket(self, hostmask, source, reply_to, tickett=None, *args):
+        if tickett is None:
+            return "http://support.koalabeast.com/#/appeal"
+        else:
+            return "http://support.koalabeast.com/#/appeal/{}".format(tickett)
+
+    @command
+    def topic(self, hostmask, source, reply_to, *args):
         #self.send_raw("Topic #tagpro")
         #x = self.get_message_from_server
         #message = "".join([a if ord(a) < 128 else '' for a in x])
@@ -362,8 +413,23 @@ class RollBot:
                       "TagPro Mods have + next to their name. | " \
                       "Mod calls must be done in #TPmods ".format(self.reddit_topic()) + u'\u2690')
 
+    @command
+    def ip(self, hostmask, source, reply_to, *args):
+        ipaddress = ' '.join(args)
+        if re.match('^[-0-9.]*$', ipaddress):
+            return ipaddress.replace("-", ".")
+        else:
+            return "Sorry, that's not an IP address!"
+
+    @command
+    def warn(self, hostmask, source, reply_to, *args):
+        if reply_to != "#TagProMods":
+            return "Sorry! This command is not authorized here."
+        else:
+            self.send_raw("NOTICE #TPmods :Please take off-topic discussion to #tagpro")
+
     @owner_command
-    def quit(self, source, reply_to, *args):
+    def quit(self, hostmask, source, reply_to, *args):
         self.logger.warn("Shutting down by request of {}", source)
         self.send_raw("QUIT :{}'s out!".format(self.nick))
         self.socket.shutdown(1)
@@ -371,7 +437,7 @@ class RollBot:
         sys.exit()
 
     @owner_command
-    def join(self, source, reply_to, channel=None, *args):
+    def join(self, hostmask, source, reply_to, channel=None, *args):
         if channel is None:
             return "Please specify a channel you wish me to join."
         else:
@@ -379,7 +445,7 @@ class RollBot:
             self.join_channel(channel)
 
     @owner_command
-    def part(self, source, reply_to, channel=None, *args):
+    def part(self, hostmask, source, reply_to, channel=None, *args):
         if reply_to == source and channel is None:  # If this was a private message, we have no channel to leave.
             return "Sorry, you must run this command in a channel or provide a channel as an argument."
         elif channel is not None:
@@ -392,7 +458,7 @@ class RollBot:
             self.leave_channel(reply_to)
 
     @owner_command
-    def say(self, source, reply_to, channel=None, *args):
+    def say(self, hostmask, source, reply_to, channel=None, *args):
         if reply_to != source:
             return "{} {}".format(channel, ' '.join(args))
         elif channel is not None:
