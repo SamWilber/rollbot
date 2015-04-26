@@ -7,3 +7,4 @@ modulegraph==0.10.4
 praw==2.1.19
 python-dateutil==1.5
 requests==2.5.1
+wikipedia==1.4.0
