@@ -8,11 +8,12 @@ import random
 
 import socket, string, os, time
 import json
-import re
 from logbook import Logger
 import inspect
 import sys
 import praw
+import re
+import wikipedia as w
 
 def command(method):  # A decorator to automatically register and add commands to the bot.
     method.is_command = True
@@ -178,7 +179,7 @@ class RollBot:
 
     @command
     def about(self, hostmask, source, reply_to, *args):
-        return "Hi my name is {} v4.2 and currently turtlemansam is holding me hostage. " \
+        return "Hi my name is {} v4.3 and currently turtlemansam is holding me hostage. " \
                "If anyone could 934-992-8144 and tell me a joke to help pass the time, " \
                "that would be great.".format(self.nick)
 
@@ -238,9 +239,11 @@ class RollBot:
             return "!warn - Warn users in #TPmods to redirect their conversation elsewhere (Moderator Command)"
         elif helpp == "weather":
             return "|weather - Accurately predicts the weather in your area"
+        elif helpp == "cheat":
+            return "!cheat - Looks up a word on wikipedia"
         else:
             return "Sorry! I don't recognize that command."
-    '''
+
     @command
     def netsplit(self, source, reply_to, *args):
         return "technically we all netsplit http://pastebin.com/mPanErhR"
@@ -294,7 +297,6 @@ class RollBot:
     @command
     def roll(self, source, reply_to, *args):
         return "Sorry {}, I can't do that right now.".format(source)
-    '''''
 
     @command
     def ping(self, hostmask, source, reply_to, *args):
@@ -427,6 +429,23 @@ class RollBot:
             return "Sorry! This command is not authorized here."
         else:
             self.send_raw("NOTICE #TPmods :Please take off-topic discussion to #tagpro")
+
+    @command
+    def cheat(self, hostmask, source, reply_to, *args):
+        choice = ' '.join(args)
+        try:
+            summary = w.summary(choice, sentences=1)
+            page = w.page(choice)
+            url = page.url
+        except w.exceptions.DisambiguationError as e:
+            summary = w.summary(e.options[0], sentences=1)
+            page = w.page(e.options[0])
+            url = page.url
+        except (w.exceptions.WikipediaException):
+            summary = "~define {}".format(choice)
+            url = "not valid"
+
+        return summary.encode("ascii", "replace")
 
     @owner_command
     def quit(self, hostmask, source, reply_to, *args):
