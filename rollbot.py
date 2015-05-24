@@ -179,7 +179,7 @@ class RollBot:
 
     @command
     def about(self, hostmask, source, reply_to, *args):
-        return "Hi my name is {} v4.3 and currently turtlemansam is holding me hostage. " \
+        return "Hi my name is {} v4.4 and currently turtlemansam is holding me hostage. " \
                "If anyone could 934-992-8144 and tell me a joke to help pass the time, " \
                "that would be great.".format(self.nick)
 
@@ -245,42 +245,42 @@ class RollBot:
             return "Sorry! I don't recognize that command."
 
     @command
-    def netsplit(self, source, reply_to, *args):
+    def netsplit(self, hostmask, source, reply_to, *args):
         return "technically we all netsplit http://pastebin.com/mPanErhR"
 
     @command
-    def weather(self, source, reply_to, *args):
+    def weather(self, hostmask, source, reply_to, *args):
         return "look out your goddamn window"
 
     @command
-    def insult(self, source, reply_to, insultee=None, *args):
+    def insult(self, hostmask, source, reply_to, insultee=None, *args):
         if insultee is None:
             return "Who shall I insult?"
         else:
             with open("insults.txt") as f:
                 insult = random.choice(list(f))
-            messages = ("You're a pretty cool guy, {}".format(insultee),
+            messages = ("You're a pretty cool guy, {}".format(insultee.encode("ascii", "replace")),
                         insult)
             return messages
 
     @command
-    def tagpro(self, source, reply_to, *args):
+    def tagpro(self, hostmask, source, reply_to, *args):
         random_idea = "I wish tagpro was {}"
         with open("iWishTagProWas.txt") as f:
             return random_idea.format(random.choice(list(f)))
 
     @command
-    def flirt(self, source, reply_to, *args):
+    def flirt(self, hostmask, source, reply_to, *args):
         with open('flirt.txt') as f:
             return random.choice(list(f))
 
     @command
-    def fortune(self, source, reply_to, *args):
+    def fortune(self, hostmask, source, reply_to, *args):
         with open("fortune.txt") as f:
             return "{}, {}".format(source, random.choice(list(f)))
 
     @command
-    def isitallcapshour(self, source, reply_to, *args):
+    def isitallcapshour(self, hostmask, source, reply_to, *args):
         now = datetime.now()
         if now.hour == 13:
             return "YES IT IS, BITCHES"
@@ -288,14 +288,14 @@ class RollBot:
             return "no, {}, it is not".format(source)
 
     @command
-    def rate(self, source, reply_to, ratee=None, *args):
+    def rate(self, hostmask, source, reply_to, ratee=None, *args):
         if ratee is None:
             return "Who do you want me to rate?"
         else:
-            return "{} has a rating of: {}".format(ratee, random.randint(1, 100))
+            return "{} has a rating of: {}".format(ratee.encode("ascii", "replace"), random.randint(1, 100))
 
     @command
-    def roll(self, source, reply_to, *args):
+    def roll(self, hostmask, source, reply_to, *args):
         return "Sorry {}, I can't do that right now.".format(source)
 
     @command
@@ -311,26 +311,31 @@ class RollBot:
             else:
                 return "Sorry! You must use this command in the channel #TPmods | Double click the channel to join."
         else:
-            self.send_raw("NAMES #TPmods")
-            message = self.get_message_from_server
-            ircmsg = message.strip('\n\r')
-            try:
-                ipp = " (http://tagpro-origin.koalabeast.com/moderate/ips/{})".format(re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', hostmask)[0])
-            except IndexError:
-                ipp = ""
-            if ircmsg.find(' 353 {} '.format(self.nick)) != -1:
-                namelist = ircmsg.split(":")[2]
-                modlist = " ".join(x[1:] for x in namelist.split() if x.startswith('+'))
-                oplist = " ".join(x[1:] for x in namelist.split() if x.startswith('@'))
-                modmsg = "- " + ' '.join(args)
-                if ' '.join(args) == "":
-                    modmsg = ""
-                if modlist == "" and oplist == "":
-                    self.send_raw("PRIVMSG #TPmods :Sorry {}, all mods are currently AFK. You can stick around or leave your request for one to find later.".format(source))
-                else:
-                    self.send_raw("PRIVMSG #TagProMods :Mods - {} {}".format(modlist, oplist))
-                    self.send_raw("PRIVMSG #TPmods :{} - the mods have received your request. Please stay patient while waiting. Make sure to state the user/issue to speed up the request process.".format(source))
-                    self.send_raw("PRIVMSG #TagProMods :Mod request from {}{} in {} {}".format(source, ipp, reply_to, modmsg))
+            if ' '.join(args) == "":
+                return "{} - Please recall !mods with a reason to notify a moderator.".format(source)
+            else:
+                self.send_raw("NAMES #TPmods")
+                message = self.get_message_from_server
+                ircmsg = message.strip('\n\r')
+                try:
+                    actualip = "{}".format(re.findall(r'\b(?:\d{1,3}[\.-]){3}\d{1,3}\b', hostmask)[0])
+                    actualipp = actualip.replace("-", ".")
+                    ippfinal = " (http://tagpro-origin.koalabeast.com/moderate/ips/{})".format(actualipp)
+                except IndexError:
+                    ippfinal = ""
+                if ircmsg.find(' 353 {} '.format(self.nick)) != -1:
+                    namelist = ircmsg.split(":")[2]
+                    modlist = " ".join(x[1:] for x in namelist.split() if x.startswith('+'))
+                    oplist = " ".join(x[1:] for x in namelist.split() if x.startswith('@'))
+                    modmsg = "- " + ' '.join(args)
+                    if ' '.join(args) == "":
+                        modmsg = ""
+                    if modlist == "" and oplist == "":
+                        self.send_raw("PRIVMSG #TPmods :Sorry {}, all mods are currently AFK. You can stick around or leave your request for one to find later.".format(source))
+                    else:
+                        self.send_raw("PRIVMSG #TagProMods :Mods - {} {}".format(modlist, oplist))
+                        self.send_raw("PRIVMSG #TPmods :{} - the mods have received your request. Please stay patient while waiting. Make sure to state the user/issue to speed up the request process.".format(source))
+                        self.send_raw("PRIVMSG #TagProMods :Mod request from {}{} in {} {}".format(source, ippfinal, reply_to, modmsg))
 
     @command
     def optin(self, hostmask, source, reply_to, *args):
@@ -340,11 +345,14 @@ class RollBot:
             self.send_raw("NAMES #TPmods")
             message = self.get_message_from_server
             ircmsg = message.strip('\n\r')
+            duty = "duty"
+            if source == "Hootie":
+                duty = "dootie"
             if ircmsg.find('+{}'.format(source)) != -1:
-                return "You are already on duty, {}.".format(source)
+                return "You are already on {}, {}.".format(duty, source)
             elif ircmsg.find('{}'.format(source)) != -1:
                 self.send_raw("PRIVMSG Chanserv :voice #TPmods {}".format(source))
-                return "You are now on duty, {}.".format(source)
+                return "You are now on {}, {}.".format(duty, source)
             else:
                 return "You are not in #TPmods, {}!".format(source)
 
@@ -356,11 +364,14 @@ class RollBot:
             self.send_raw("NAMES #TPmods")
             message = self.get_message_from_server
             ircmsg = message.strip('\n\r')
+            duty = "duty"
+            if source == "Hootie":
+                duty = "dootie"
             if ircmsg.find('+{}'.format(source)) != -1:
                 self.send_raw("PRIVMSG Chanserv :devoice #TPmods {}".format(source))
-                return "You are now off duty, {}.".format(source)
+                return "You are now off {}, {}.".format(duty, source)
             elif ircmsg.find('{}'.format(source)) != -1:
-                return "You are already off duty, {}.".format(source)
+                return "You are already off {}, {}.".format(duty, source)
             else:
                 return "You are not in #TPmods, {}!".format(source)
 
